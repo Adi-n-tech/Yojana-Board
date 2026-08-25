@@ -1,0 +1,397 @@
+Internal Task Management Platform
+Product, UI, Technical Architecture & Development Roadmap
+ Working name: WorkFlow Web-first internal Linear alternative with Google Sheets storage and GitHub integration
+
+1. Executive Summary
+WorkFlow is an internal project and task management platform designed to reduce reliance on paid Linear seats and Excel-based task tracking. The first version will provide a fast, Linear-inspired web experience for projects, features, bugs and tasks, while using Google Sheets as the initial persistence layer and GitHub as the development workflow integration.
+The architecture should deliberately separate the UI and business logic from the storage implementation. Google Sheets is therefore an MVP storage adapter rather than a permanent architectural dependency. If usage grows, the storage layer can be migrated to PostgreSQL or another database without redesigning the product.
+The product will be built web-first. A desktop client can later be introduced using Tauri and the same backend APIs, adding global shortcuts, system notifications and desktop-specific capabilities.
+2. Product Vision
+Build an internal tool that is:
+Faster and simpler than Jira for everyday work.
+More structured and collaborative than Excel.
+Close to Linear in interaction quality and information density.
+Deeply integrated with GitHub for software development.
+Cheap to operate and simple to maintain.
+Designed to evolve toward a real database when scale requires it.
+Eventually AI-native for task creation, search, summaries and reporting.
+3. Goals and Non-Goals
+Goals
+Replace Excel-based project/task tracking for internal teams.
+Provide projects, tasks, features, bugs, priorities, assignees, labels and due dates.
+Provide List and Kanban views.
+Provide My Work and project dashboards.
+Create GitHub issues automatically from tasks.
+Support GitHub issue/PR synchronization in later phases.
+Use Google Sheets without exposing Google credentials to the browser.
+Maintain a clean abstraction so storage can later move to PostgreSQL.
+Non-Goals for MVP
+Full Jira/Linear feature parity.
+Complex custom workflows.
+Advanced time tracking.
+Billing/subscription functionality.
+Native mobile apps.
+AI automation before the core workflow is stable.
+4. Target Users and Roles
+Role
+Responsibilities
+Admin
+Workspace settings, users, teams, projects, GitHub configuration.
+Project Lead
+Project members, tasks, milestones, assignments, project reporting.
+Member
+Create/update tasks, comments, status, assignments where permitted.
+
+5. Core Product Model
+Workspace  ├── Teams  │    └── Members  ├── Projects  │    ├── Milestones  │    └── Tasks  │         ├── Comments  │         ├── Labels  │         ├── GitHub Issue  │         └── GitHub PR  └── Users
+6. Core Entities
+Entity
+Purpose
+Workspace
+Top-level company/organization container.
+User
+Employee/member using the application.
+Team
+Functional group such as Android, Backend, QA or Hardware.
+Project
+A major product, initiative or workstream.
+Task
+Atomic unit of work.
+Milestone
+Collection of tasks tied to a release or deadline.
+Label
+Flexible classification such as Firebase, UI, Bug or Backend.
+Comment
+Discussion attached to a task.
+Activity
+Audit/history event for important changes.
+GitHub Repository
+Repository mapped to a project.
+GitHub Issue/PR
+External development artifacts linked to a task.
+
+7. Task Specification
+Every task should have a human-readable identifier, for example AND-123.
+Field
+Description
+ID
+Unique task identifier such as AND-123.
+Title
+Short task title.
+Description
+Detailed requirement/context.
+Type
+Feature, Bug, Task, Improvement or Chore.
+Status
+Backlog, Todo, In Progress, In Review, Done, Blocked, Cancelled.
+Priority
+P0 Urgent, P1 High, P2 Medium, P3 Low.
+Project
+Parent project.
+Team
+Responsible team.
+Assignee
+Person responsible for execution.
+Reporter
+Person who created the task.
+Labels
+Classification tags.
+Due Date
+Expected completion date.
+Milestone
+Optional release/milestone association.
+GitHub Issue
+Linked GitHub issue metadata.
+GitHub PR
+Linked pull request metadata.
+Created/Updated
+Audit timestamps.
+
+8. UI/UX Plan
+The UI should take inspiration from Linear: compact, fast, keyboard-friendly and information-dense. Avoid large dashboard cards, excessive colors and unnecessary modal flows.
+8.1 Application Shell
+┌────────────────────────────────────────────────────────────┐ │ Logo   Search...                         + Create   Avatar │ ├───────────────┬────────────────────────────────────────────┤ │ My Work       │                                            │ │ Inbox         │               Main Content                 │ │               │                                            │ │ WORKSPACE     │                                            │ │ Projects      │                                            │ │ Teams         │                                            │ │ Members       │                                            │ │               │                                            │ │ SETTINGS      │                                            │ │ GitHub        │                                            │ │ Settings      │                                            │ └───────────────┴────────────────────────────────────────────┘
+8.2 Main Screens
+Login / Google authentication.
+My Work.
+Projects list.
+Project overview.
+Project task list.
+Project Kanban board.
+Task detail side panel.
+Teams.
+Members.
+Global search.
+GitHub integration settings.
+Workspace settings.
+Admin/system health.
+8.3 Create Task UX
+Task creation is the most important interaction. It should require very few fields and support a quick-create flow.
+Create Task Title: Fix Firebase authentication crash Project: Android App Type: Bug Priority: P1 Assignee: Aditya Status: Todo Due Date: 28 Aug Labels: Firebase [✓] Create GitHub issue
+8.4 My Work
+Today.
+Upcoming.
+Overdue.
+Completed.
+Assigned tasks grouped by status.
+Due-soon indicators.
+8.5 Search and Filters
+Global search across tasks, projects, users and linked GitHub issues.
+Filters for project, team, status, priority, type, label, assignee and due date.
+Sorting by priority, due date, created date and updated date.
+Future support for Linear-style query syntax such as project:Android status:in-progress.
+8.6 Keyboard Shortcuts
+Shortcut
+Action
+C
+Create task
+Ctrl/Cmd + K
+Command menu
+/
+Search
+Q
+My Work
+G then P
+Projects
+G then T
+Teams
+A
+Assign task
+P
+Change priority
+S
+Change status
+E
+Edit task
+
+9. Google Sheets Storage Architecture
+Use one Google Spreadsheet per workspace initially, with separate tabs for logical entities. The frontend must never directly manipulate Sheets.
+Sheet
+Purpose
+Users
+Workspace members and profile metadata.
+Teams
+Teams and membership relationships.
+Projects
+Project metadata.
+Tasks
+Primary task records.
+Comments
+Task comments.
+Labels
+Workspace/project labels.
+Milestones
+Milestones/releases.
+Activity
+Task/project audit history.
+GitHubRepositories
+Repository mappings and metadata.
+Settings
+Workspace configuration.
+
+9.1 Tasks Sheet Columns
+id | projectId | teamId | title | description | type | status | priority | assigneeId | reporterId | dueDate | startDate | labels | milestoneId | githubIssueId | githubIssueNumber | githubIssueUrl | createdAt | updatedAt
+9.2 Storage Abstraction
+interface TaskRepository {     getTasks()     getTask(id)     createTask(task)     updateTask(task)     deleteTask(id) }  Initial implementation: GoogleSheetsTaskRepository  Future implementation: PostgresTaskRepository
+This abstraction is critical. UI and business logic must not depend directly on Google Sheets.
+10. GitHub Integration
+10.1 Connection
+Admin opens Settings → Integrations → GitHub.
+User authenticates with GitHub OAuth.
+Select organization/account and repositories.
+Map project to repository.
+Store repository metadata securely.
+10.2 Project-to-Repository Mapping
+Project
+Repository
+Android App
+company/android
+Backend
+company/backend
+iOS App
+company/ios
+Website
+company/web
+
+10.3 Automatic Issue Creation
+Create Task     ↓ Validate task/project     ↓ Save task in Google Sheets     ↓ If "Create GitHub Issue" enabled     ↓ GitHub API     ↓ Create Issue     ↓ Save issue number + URL on task
+GitHub issue body should contain the internal task ID, description, project, priority, assignee and a link back to WorkFlow.
+10.4 Two-Way Synchronization
+Later phases should support:
+GitHub issue opened/closed/reopened → internal task status.
+Pull request opened → link PR to task.
+Pull request merged → optionally mark task Done.
+GitHub labels and assignee synchronization where useful.
+Activity events for issue and PR changes.
+Use GitHub Webhooks instead of continuous polling wherever possible.
+11. Recommended Technology Stack
+Layer
+Technology
+Reason
+Frontend
+Next.js + TypeScript
+Fast development, mature ecosystem, easy deployment.
+UI
+Tailwind CSS
+Rapid, consistent styling.
+Components
+shadcn/ui
+Accessible, customizable primitives.
+Icons
+Lucide
+Clean consistent icon set.
+Client state/data
+TanStack Query
+Caching and server-state management.
+Forms
+React Hook Form + Zod
+Validation and robust forms.
+Auth
+Google OAuth
+Fits the Google Sheets workflow.
+Initial storage
+Google Sheets API
+Low cost and simple MVP persistence.
+GitHub
+GitHub REST API + Webhooks
+Issues, PRs and synchronization.
+Deployment
+Vercel
+Simple Next.js deployment.
+Desktop later
+Tauri
+Lightweight desktop client over the same APIs.
+Future DB
+PostgreSQL
+Scalable relational storage when required.
+
+12. Backend Architecture
+Browser    ↓ Next.js UI    ↓ Application API / Server Actions    ↓ Business Logic / Services    ├── Authentication    ├── Task Service    ├── Project Service    ├── Google Sheets Service    └── GitHub Service         ↓ Google Sheets / GitHub
+Do not put business rules inside React components. Keep API/service logic separate so it can later move to a dedicated backend if scale requires it.
+13. Security
+Never expose Google or GitHub secrets in browser code.
+Store secrets in server-side environment variables.
+Validate workspace membership on every protected API operation.
+Enforce role/permission checks server-side.
+Validate GitHub webhook signatures.
+Use least-privilege OAuth scopes.
+Keep audit/activity records for important changes.
+Do not store access tokens in Google Sheets.
+14. Development Roadmap
+Phase
+Estimated Effort
+Main Deliverable
+Phase 1
+1 week
+Foundation, authentication, app shell, Google Sheets connection.
+Phase 2
+1–2 weeks
+Projects, teams, tasks, comments and core task management.
+Phase 3
+1 week
+List, Kanban, My Work, filters, search and bulk actions.
+Phase 4
+1 week
+GitHub OAuth, repository mapping and issue creation.
+Phase 5
+1 week
+GitHub webhooks, issue/PR synchronization.
+Phase 6
+1–2 weeks
+Dashboards, milestones, workload and management views.
+Phase 7
+1 week
+Polish, performance, accessibility, reliability and security review.
+Phase 8
+Future
+AI features and desktop application.
+
+15. Detailed Implementation Sequence
+Create Git repository and establish Next.js/TypeScript project.
+Configure Tailwind, shadcn/ui, linting and formatting.
+Implement Google authentication.
+Create workspace/user/team/project/task domain models.
+Implement server-side Google Sheets adapter.
+Build application shell and navigation.
+Implement project CRUD.
+Implement task CRUD.
+Implement task detail panel.
+Implement comments and activity history.
+Implement List view.
+Implement Kanban with drag-and-drop.
+Implement My Work.
+Implement search, filters and sorting.
+Implement GitHub OAuth.
+Implement repository mapping.
+Implement automatic GitHub issue creation.
+Implement GitHub webhook endpoint.
+Implement issue and PR synchronization.
+Implement project/team dashboards.
+Add notifications.
+Add production monitoring and error handling.
+Pilot with a small internal group.
+Collect feedback and iterate.
+Only then begin desktop/Tauri work.
+16. MVP Acceptance Criteria
+Employee can log in with Google.
+Admin can manage users, teams and projects.
+User can create, edit and assign tasks.
+Task data persists in Google Sheets.
+User can move tasks through Kanban statuses.
+User can comment on tasks.
+User can search and filter tasks.
+Project has List and Kanban views.
+User can connect GitHub.
+Project can be mapped to a GitHub repository.
+Task can automatically create a GitHub issue.
+Internal task stores and displays the GitHub issue link.
+Errors are handled without losing task data.
+No Google/GitHub secrets are exposed to the client.
+17. Future AI Features
+Natural-language task creation.
+Natural-language task search.
+Automatic task extraction from meeting notes.
+Project summaries.
+Weekly team summaries.
+Overdue-task analysis.
+Suggested priorities.
+Suggested assignees.
+Release readiness summaries.
+AI-generated GitHub issue descriptions.
+18. Desktop Application Plan
+The desktop application should be Phase 2, not part of the first MVP. It should reuse the same APIs and authentication model as the web application.
+                 WorkFlow Backend                        │              ┌─────────┴─────────┐              │                   │           Web App           Desktop App                               │                             Tauri                               │                  ┌────────────┼────────────┐                  │            │            │               Shortcut    Notifications   Tray
+Global quick-create shortcut.
+System notifications.
+Tray/menu-bar access.
+Deep links to tasks.
+Optional offline cache later.
+Same backend and authorization model as web.
+19. Scalability and Migration Strategy
+Google Sheets is appropriate for the first internal version, but it should not be assumed to be the final database. The migration trigger should be based on actual usage: concurrency, task volume, query complexity, latency and reliability requirements.
+Current: Frontend → API → Google Sheets  Future: Frontend → API → PostgreSQL  Migration: Google Sheets → migration script → PostgreSQL
+Because repositories are abstracted, the migration should primarily replace the persistence adapter rather than requiring a rewrite of the product.
+20. Suggested First Pilot
+Build the MVP with the core task workflow only.
+Pilot with 3–5 internal users.
+Run one or two real projects through it.
+Continue Excel in parallel for safety during the pilot.
+Collect feedback on task creation, board workflow, search and GitHub integration.
+Fix friction before adding dashboards or AI.
+Expand to the wider team only after the core workflow is reliable.
+21. Success Metrics
+Percentage of active projects managed without Excel.
+Weekly active users.
+Tasks created per week.
+Percentage of development tasks linked to GitHub.
+Average time to create a task.
+Percentage of tasks updated on time.
+Number of overdue tasks.
+User-reported reduction in project-management overhead.
+22. Recommended Product Direction
+The strongest strategy is not to build a complete Linear clone. Build the smallest internal system that makes the existing workflow better: Excel-like simplicity, Linear-like task management and GitHub-native development tracking.
+The first milestone should therefore be: Google Login → Project → Task → Kanban → Google Sheets persistence → GitHub Issue creation. Once that workflow is stable and adopted, add two-way GitHub synchronization, dashboards, notifications, AI and finally the desktop client.
+Appendix A — Example End-to-End Workflow
+Employee logs in       ↓ Opens Android App project       ↓ Creates AND-123       ↓ Assigns Aditya       ↓ Task appears in Kanban       ↓ "Create GitHub Issue"       ↓ GitHub #142 created       ↓ Developer works on issue       ↓ PR #156 opened       ↓ PR linked to AND-123       ↓ PR merged       ↓ Task marked Done       ↓ Activity history records the entire workflow
+Appendix B — Initial Repository Structure
+workflow/ ├── app/ │   ├── (auth)/ │   ├── dashboard/ │   ├── projects/ │   ├── teams/ │   ├── settings/ │   └── api/ ├── components/ │   ├── tasks/ │   ├── projects/ │   ├── kanban/ │   ├── layout/ │   └── ui/ ├── services/ │   ├── auth/ │   ├── tasks/ │   ├── projects/ │   ├── google-sheets/ │   └── github/ ├── repositories/ │   ├── task-repository.ts │   ├── project-repository.ts │   └── user-repository.ts ├── types/ ├── lib/ └── tests/
