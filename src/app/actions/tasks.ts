@@ -12,6 +12,15 @@ export async function fetchTasksAction() {
   }
 }
 
+export async function fetchTaskAction(id: string) {
+  try {
+    return await taskRepository.getTask(id);
+  } catch (error) {
+    console.error(`Failed to fetch task ${id}:`, error);
+    return null;
+  }
+}
+
 export async function createTaskAction(task: Task) {
   try {
     return await taskRepository.createTask(task);

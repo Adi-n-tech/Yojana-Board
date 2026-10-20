@@ -45,6 +45,15 @@ export interface Task {
   githubIssueUrl?: string;
   createdAt: string;
   updatedAt: string;
+  cycleId?: string;
+}
+
+export interface Cycle {
+  id: string;
+  projectId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface Comment {

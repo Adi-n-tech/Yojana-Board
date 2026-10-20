@@ -2,7 +2,7 @@ import { Task } from '@/types';
 import { getGoogleSheetsClient, SPREADSHEET_ID } from '@/services/google-sheets';
 
 const SHEET_NAME = 'Tasks';
-const RANGE = `${SHEET_NAME}!A2:S`; // Skip header row
+const RANGE = `${SHEET_NAME}!A:T`;
 
 export interface TaskRepository {
   getTasks(): Promise<Task[]>;
@@ -20,9 +20,14 @@ export class GoogleSheetsTaskRepository implements TaskRepository {
       range: RANGE,
     });
 
-    const rows = response.data.values;
+    let rows = response.data.values;
     if (!rows || rows.length === 0) {
       return [];
+    }
+    
+    // If the first row is a header, skip it
+    if (rows[0][0] && rows[0][0].toLowerCase() === 'id') {
+      rows = rows.slice(1);
     }
 
     return rows.map((row: string[]) => ({
@@ -45,6 +50,7 @@ export class GoogleSheetsTaskRepository implements TaskRepository {
       githubIssueUrl: row[16],
       createdAt: row[17],
       updatedAt: row[18],
+      cycleId: row[19],
     }));
   }
 
@@ -76,11 +82,12 @@ export class GoogleSheetsTaskRepository implements TaskRepository {
       task.githubIssueUrl || '',
       task.createdAt,
       task.updatedAt,
+      task.cycleId || '',
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A:S`,
+      range: RANGE,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
@@ -123,10 +130,12 @@ export class GoogleSheetsTaskRepository implements TaskRepository {
       task.githubIssueUrl || '',
       task.createdAt,
       task.updatedAt,
+      task.cycleId || '',
     ];
 
-    // +2 because rows are 0-indexed and we skip the header row (A1)
-    const updateRange = `${SHEET_NAME}!A${rowIndex + 2}:S${rowIndex + 2}`;
+    // rowIndex is based on A:T so rowIndex 0 is A1.
+    const actualRowNumber = rowIndex + 1;
+    const updateRange = `${SHEET_NAME}!A${actualRowNumber}:T${actualRowNumber}`;
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
